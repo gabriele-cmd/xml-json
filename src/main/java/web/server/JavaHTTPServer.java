@@ -18,7 +18,7 @@ import java.util.StringTokenizer;
 
 public class JavaHTTPServer implements Runnable{ 
 	
-	static final File WEB_ROOT = new File("."); //path
+	static final File WEB_ROOT = new File("./src/main/resources"); //path
 	static final String DEFAULT_FILE = "index.html"; //pagina di default
 	static final String FILE_NOT_FOUND = "404.html"; //pagina di errore Client
 	static final String METHOD_NOT_SUPPORTED = "not_supported.html"; //pagina di errore del metodo (errore Server)
@@ -101,16 +101,34 @@ public class JavaHTTPServer implements Runnable{
 				dataOut.flush();
 				
 			} else {
-				//metodi utilizzabili GET o HEAD
-				if (fileRequested.endsWith("/")) {
-					fileRequested += DEFAULT_FILE; //aggiunge index.html all'url
-				}
-				
+
 				File file = new File(WEB_ROOT, fileRequested);
 				int fileLength = (int) file.length();
 				String content = getContentType(fileRequested);
+
+				//metodi utilizzabili GET o HEAD
+				if (fileRequested.endsWith("/")) {
+					fileRequested += DEFAULT_FILE; //aggiunge index.html all'url
+
+				}else{
+					byte[] fileData = readFileData(file, fileLength);
+					fileRequested += "/";
+
+					//invia gli Headers
+					out.println("HTTP/1.1 301 REINDIRIZZATO"); //status code 301: RISORSA SPOSTATA
+					out.println("Server: Java HTTP Server from SSaurel : 1.0");
+					out.println("Date: " + new Date());
+					out.println("Location: " + fileRequested);
+					out.println("Content-type: " + content);
+					out.println("Content-length: " + fileLength);
+					out.println(); //per far capire che stiamo passando dagli header al contenuto si usa DOPPIO SPAZIO!
+					out.flush(); //flush character output stream buffer
+					
+					dataOut.write(fileData, 0, fileLength);
+					dataOut.flush();
+				}
 				
-				if (method.equals("GET")) { // GET method so we return content
+				if (method.equals("GET")) { //il metodo GET ci reindirizza correttamente
 					byte[] fileData = readFileData(file, fileLength);
 					
 					//invia gli Headers
