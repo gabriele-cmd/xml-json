@@ -76,6 +76,9 @@ public class JavaHTTPServer implements Runnable{
 			String method = parse.nextToken().toUpperCase(); //si prende il metodo usato  dal Client (UpperCase per renderlo nel formato GET o HEAD)
 			fileRequested = parse.nextToken().toLowerCase(); //si prende il file richiesto (fileRequested)
 			
+
+			String content = null;
+
 			//GET e HEAD sono gli unici metodi supportati, altrimenti ERRORE del SERVER
 			if (!method.equals("GET")  &&  !method.equals("HEAD")) {
 				if (verbose) {
@@ -102,47 +105,69 @@ public class JavaHTTPServer implements Runnable{
 				
 			} else {
 
-				File file = new File(WEB_ROOT, fileRequested);
-				int fileLength = (int) file.length();
-				String content = getContentType(fileRequested);
-
 				//metodi utilizzabili GET o HEAD
 				if (fileRequested.endsWith("/")) {
 					fileRequested += DEFAULT_FILE; //aggiunge index.html all'url
 
-				}else{
-					byte[] fileData = readFileData(file, fileLength);
-					fileRequested += "/";
+					File file = new File(WEB_ROOT, fileRequested);
+					int fileLength = (int) file.length();
+					if (method.equals("GET")) { //il metodo GET ci reindirizza correttamente
+						byte[] fileData = readFileData(file, fileLength);
+						
+						//invia gli Headers
+						out.println("HTTP/1.1 200 OK"); //status code 200: TUTTO OK
+						out.println("Server: Java HTTP Server from SSaurel : 1.0");
+						out.println("Date: " + new Date());
+						out.println("Location: " + fileRequested);
+						out.println("Content-type: " + content);
+						out.println("Content-length: " + fileLength);
+						out.println(); //per far capire che stiamo passando dagli header al contenuto si usa DOPPIO SPAZIO!
+						out.flush(); //flush character output stream buffer
+						
+						dataOut.write(fileData, 0, fileLength);
+						dataOut.flush();
+					}
 
-					//invia gli Headers
-					out.println("HTTP/1.1 301 REINDIRIZZATO"); //status code 301: RISORSA SPOSTATA
-					out.println("Server: Java HTTP Server from SSaurel : 1.0");
-					out.println("Date: " + new Date());
-					out.println("Location: " + fileRequested);
-					out.println("Content-type: " + content);
-					out.println("Content-length: " + fileLength);
-					out.println(); //per far capire che stiamo passando dagli header al contenuto si usa DOPPIO SPAZIO!
-					out.flush(); //flush character output stream buffer
+				}else{
+
+					File file = new File(WEB_ROOT, fileRequested);
+					int fileLength = (int) file.length();
+					content = getContentType(fileRequested);
 					
-					dataOut.write(fileData, 0, fileLength);
-					dataOut.flush();
-				}
-				
-				if (method.equals("GET")) { //il metodo GET ci reindirizza correttamente
-					byte[] fileData = readFileData(file, fileLength);
+					if(file.isFile() && file.exists()){
+						byte[] fileData = readFileData(file, fileLength);
 					
-					//invia gli Headers
-					out.println("HTTP/1.1 200 OK"); //status code 200: TUTTO OK
-					out.println("Server: Java HTTP Server from SSaurel : 1.0");
-					out.println("Date: " + new Date());
-					out.println("Content-type: " + content);
-					out.println("Content-length: " + fileLength);
-					out.println(); //per far capire che stiamo passando dagli header al contenuto si usa DOPPIO SPAZIO!
-					out.flush(); //flush character output stream buffer
-					
-					dataOut.write(fileData, 0, fileLength);
-					dataOut.flush();
-				}
+						//invia gli Headers
+						out.println("HTTP/1.1 200 OK"); //status code 200: TUTTO OK
+						out.println("Server: Java HTTP Server from SSaurel : 1.0");
+						out.println("Date: " + new Date());
+						out.println("Location: " + fileRequested);
+						out.println("Content-type: " + content);
+						out.println("Content-length: " + fileLength);
+						out.println(); //per far capire che stiamo passando dagli header al contenuto si usa DOPPIO SPAZIO!
+						out.flush(); //flush character output stream buffer
+						
+						dataOut.write(fileData, 0, fileLength);
+						dataOut.flush();
+
+					}else
+						if(fileRequested.endsWith(".html") || fileRequested.endsWith(".css") || fileRequested.endsWith(".js")){
+							fileNotFound(out, dataOut, fileRequested);
+
+						}else{
+						fileRequested += "/";
+
+						//invia gli Headers
+						out.println("HTTP/1.1 301 REINDIRIZZATO"); //status code 301: RISORSA SPOSTATA
+						out.println("Server: Java HTTP Server from SSaurel : 1.0");
+						out.println("Date: " + new Date());
+						out.println("Location: " + fileRequested);
+						out.println(); //per far capire che stiamo passando dagli header al contenuto si usa DOPPIO SPAZIO!
+						out.flush(); //flush character output stream buffer
+						
+						dataOut.flush();
+					}
+				}				
 				
 				if (verbose) {
 					System.out.println("File " + fileRequested + " of type " + content + " returned");
@@ -197,7 +222,29 @@ public class JavaHTTPServer implements Runnable{
 	private String getContentType(String fileRequested) {
 		if (fileRequested.endsWith(".htm")  ||  fileRequested.endsWith(".html"))
 			return "text/html";
-		else
+
+		else if(fileRequested.endsWith(".css"))
+			return "text/css";
+
+		else if(fileRequested.endsWith(".png"))
+			return "image/png";
+
+		else if(fileRequested.endsWith(".javascript"))
+			return "text/javascript";
+
+		else if(fileRequested.endsWith(".jpeg"))
+			return "image/jpeg";
+
+		else if(fileRequested.endsWith(".webp"))
+			return "image/webp";
+
+		else if(fileRequested.endsWith(".gif"))
+			return "image/gif";
+
+		else if(fileRequested.endsWith(".jpg"))
+			return "image/jpg";
+
+		else 
 			return "text/plain";
 	}
 	
@@ -211,6 +258,7 @@ public class JavaHTTPServer implements Runnable{
 		out.println("HTTP/1.1 404 File Not Found"); //status code 404: FILE NON TROVATO
 		out.println("Server: Java HTTP Server from SSaurel : 1.0");
 		out.println("Date: " + new Date());
+		out.println("Location: " + fileRequested);
 		out.println("Content-type: " + content);
 		out.println("Content-length: " + fileLength);
 		out.println(); //per far capire che stiamo passando dagli header al contenuto si usa DOPPIO SPAZIO!
