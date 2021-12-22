@@ -10,18 +10,29 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.PrintWriter;
-import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.Date;
 import java.util.StringTokenizer;
 
 
 public class JavaHTTPServer implements Runnable{ 
+
+	//inizializzo le classi per usare le varie funzioni
+	ContentType contentType = new ContentType();
+
 	
 	static final File WEB_ROOT = new File("./src/main/resources"); //path
 	static final String DEFAULT_FILE = "index.html"; //pagina di default
 	static final String FILE_NOT_FOUND = "404.html"; //pagina di errore Client
 	static final String METHOD_NOT_SUPPORTED = "not_supported.html"; //pagina di errore del metodo (errore Server)
+
+	public File getWebRoot(){
+		return WEB_ROOT;
+	}
+
+	public String getMethodnotSupp(){
+		return METHOD_NOT_SUPPORTED;
+	}
 	
 	static final int PORT = 8080; //porta per la connessione socket
 	
@@ -34,29 +45,6 @@ public class JavaHTTPServer implements Runnable{
 		connect = c;
 	}
 	
-	public static void main(String[] args) {
-
-		try {
-			ServerSocket serverConnect = new ServerSocket(8080);
-			System.out.println("Server started.\nListening for connections on port : " + JavaHTTPServer.PORT + " ...\n");
-			
-			//ci mettiamo in ascolto di messaggi dal SERVER finché l'utente non CHIUDE la connessione
-			while (true) {
-				JavaHTTPServer myServer = new JavaHTTPServer(serverConnect.accept());
-				
-				if (JavaHTTPServer.verbose) {
-					System.out.println("Connecton opened. (" + new Date() + ")");
-				}
-				
-				//crea un THREAD dedicato per GESTIRE la CONNESSIONE di un client
-				Thread thread = new Thread(myServer);
-				thread.start();
-			}
-			
-		} catch (IOException e) {
-			System.err.println("Server Connection error : " + e.getMessage());
-		}
-	}
 
 	@Override
 	public void run() {
@@ -85,23 +73,8 @@ public class JavaHTTPServer implements Runnable{
 					System.out.println("501 Not Implemented : " + method + " method.");
 				}
 				
-				//file non supportati
-				File file = new File(WEB_ROOT, METHOD_NOT_SUPPORTED);
-				int fileLength = (int) file.length();
-				String contentMimeType = "text/html";
-				byte[] fileData = readFileData(file, fileLength);
-					
-				//invio Header
-				out.println("HTTP/1.1 501 Not Implemented"); //status code con 501: ERRORE SERVER
-				out.println("Server: Java HTTP Server from SSaurel : 1.0");
-				out.println("Date: " + new Date());
-				out.println("Content-type: " + contentMimeType);
-				out.println("Content-length: " + fileLength);
-				out.println(); //per far capire che stiamo passando dagli header al contenuto si usa DOPPIO SPAZIO!
-				out.flush(); // flush character output stream buffer
-				// file
-				dataOut.write(fileData, 0, fileLength);
-				dataOut.flush();
+				//501 SERVER ERROR HEADERS
+				serverError(out, dataOut);
 				
 			} else {
 
@@ -111,68 +84,39 @@ public class JavaHTTPServer implements Runnable{
 
 					File file = new File(WEB_ROOT, fileRequested);
 					int fileLength = (int) file.length();
+					content = contentType.getContentType(fileRequested);
+
 					if (method.equals("GET")) { //il metodo GET ci reindirizza correttamente
-						byte[] fileData = readFileData(file, fileLength);
-						
-						//invia gli Headers
-						out.println("HTTP/1.1 200 OK"); //status code 200: TUTTO OK
-						out.println("Server: Java HTTP Server from SSaurel : 1.0");
-						out.println("Date: " + new Date());
-						out.println("Location: " + fileRequested);
-						out.println("Content-type: " + content);
-						out.println("Content-length: " + fileLength);
-						out.println(); //per far capire che stiamo passando dagli header al contenuto si usa DOPPIO SPAZIO!
-						out.flush(); //flush character output stream buffer
-						
-						dataOut.write(fileData, 0, fileLength);
-						dataOut.flush();
+						//200 OK HEADERS
+						fileOK(out, dataOut, fileRequested, fileLength, content, file);
 					}
 
 				}else{
 
 					File file = new File(WEB_ROOT, fileRequested);
 					int fileLength = (int) file.length();
-					content = getContentType(fileRequested);
+					content = contentType.getContentType(fileRequested);
 					
 					if(file.isFile() && file.exists()){
-						byte[] fileData = readFileData(file, fileLength);
-					
-						//invia gli Headers
-						out.println("HTTP/1.1 200 OK"); //status code 200: TUTTO OK
-						out.println("Server: Java HTTP Server from SSaurel : 1.0");
-						out.println("Date: " + new Date());
-						out.println("Location: " + fileRequested);
-						out.println("Content-type: " + content);
-						out.println("Content-length: " + fileLength);
-						out.println(); //per far capire che stiamo passando dagli header al contenuto si usa DOPPIO SPAZIO!
-						out.flush(); //flush character output stream buffer
-						
-						dataOut.write(fileData, 0, fileLength);
-						dataOut.flush();
+						if(method.equals("GET"))
+						//200 OK HEADERS
+						fileOK(out, dataOut, fileRequested, fileLength, content, file);
 
-					}else
-						if(fileRequested.endsWith(".html") || fileRequested.endsWith(".css") || fileRequested.endsWith(".js")){
+						if (verbose) {
+							System.out.println("File " + fileRequested + " of type " + content + " returned");
+						}
+
+					}else{
+						if(fileRequested.endsWith(".html") || fileRequested.endsWith(".css") || fileRequested.endsWith(".js") || fileRequested.endsWith(".jpg") || fileRequested.endsWith(".png") || fileRequested.endsWith(".gif") || fileRequested.endsWith("jpeg") || fileRequested.endsWith("webp")){
+							//404 ERROR HEADERS
 							fileNotFound(out, dataOut, fileRequested);
 
 						}else{
-						fileRequested += "/";
-
-						//invia gli Headers
-						out.println("HTTP/1.1 301 REINDIRIZZATO"); //status code 301: RISORSA SPOSTATA
-						out.println("Server: Java HTTP Server from SSaurel : 1.0");
-						out.println("Date: " + new Date());
-						out.println("Location: " + fileRequested);
-						out.println(); //per far capire che stiamo passando dagli header al contenuto si usa DOPPIO SPAZIO!
-						out.flush(); //flush character output stream buffer
-						
-						dataOut.flush();
+							//301 FILE MOVED HEADERS
+							fileMoved(out, dataOut, fileRequested);
+						}
 					}
-				}				
-				
-				if (verbose) {
-					System.out.println("File " + fileRequested + " of type " + content + " returned");
-				}
-				
+				}			
 			}
 			
 		} catch (FileNotFoundException fnfe) { //se quindi il fileRequested non esista, genere un'eccezione che viene gestita come seguito
@@ -203,7 +147,7 @@ public class JavaHTTPServer implements Runnable{
 	}
 	
 	//legge un file fornito in Input, prendendo come parametri anche la sua lunghezza in byte
-	private byte[] readFileData(File file, int fileLength) throws IOException {
+	public byte[] readFileData(File file, int fileLength) throws IOException {
 		FileInputStream fileIn = null;
 		byte[] fileData = new byte[fileLength];
 		
@@ -217,39 +161,71 @@ public class JavaHTTPServer implements Runnable{
 		
 		return fileData;
 	}
-	
-	//ritorna il tipo di contenuto supportato ma conta solo se il file è di tipo HTM o HTML
-	private String getContentType(String fileRequested) {
-		if (fileRequested.endsWith(".htm")  ||  fileRequested.endsWith(".html"))
-			return "text/html";
 
-		else if(fileRequested.endsWith(".css"))
-			return "text/css";
 
-		else if(fileRequested.endsWith(".png"))
-			return "image/png";
 
-		else if(fileRequested.endsWith(".javascript"))
-			return "text/javascript";
 
-		else if(fileRequested.endsWith(".jpeg"))
-			return "image/jpeg";
 
-		else if(fileRequested.endsWith(".webp"))
-			return "image/webp";
 
-		else if(fileRequested.endsWith(".gif"))
-			return "image/gif";
 
-		else if(fileRequested.endsWith(".jpg"))
-			return "image/jpg";
 
-		else 
-			return "text/plain";
+
+	//quando avviene un Errore del SERVER restituisce questi header
+	private void serverError(PrintWriter out, OutputStream dataOut) throws IOException{
+		//file non supportati
+		File file = new File(WEB_ROOT, METHOD_NOT_SUPPORTED);
+		int fileLength = (int) file.length();
+		String contentMimeType = "text/html";
+		byte[] fileData = readFileData(file, fileLength);
+			
+		//invio Header
+		out.println("HTTP/1.1 501 Not Implemented"); //status code con 501: ERRORE SERVER
+		out.println("Server: Java HTTP Server from SSaurel : 1.0");
+		out.println("Date: " + new Date());
+		out.println("Content-type: " + contentMimeType);
+		out.println("Content-length: " + fileLength);
+		out.println(); //per far capire che stiamo passando dagli header al contenuto si usa DOPPIO SPAZIO!
+		out.flush(); // flush character output stream buffer
+		// file
+		dataOut.write(fileData, 0, fileLength);
+		dataOut.flush();
+	}
+
+	//quando il file è OK restituisce questi header
+	private void fileOK(PrintWriter out, OutputStream dataOut, String fileRequested, int fileLength, String content, File file) throws IOException{
+		byte[] fileData = readFileData(file, fileLength);
+						
+		//invia gli Headers
+		out.println("HTTP/1.1 200 OK"); //status code 200: TUTTO OK
+		out.println("Server: Java HTTP Server from SSaurel : 1.0");
+		out.println("Date: " + new Date());
+		out.println("Location: " + fileRequested);
+		out.println("Content-type: " + content);
+		out.println("Content-length: " + fileLength);
+		out.println(); //per far capire che stiamo passando dagli header al contenuto si usa DOPPIO SPAZIO!
+		out.flush(); //flush character output stream buffer
+						
+		dataOut.write(fileData, 0, fileLength);
+		dataOut.flush();
+	}
+
+	//quando la risorsa richiesta è SPOSTATA restituisce questi header
+	private void fileMoved(PrintWriter out, OutputStream dataOut, String fileRequested) throws IOException{
+		fileRequested += "/";
+		//invia gli Headers
+		out.println("HTTP/1.1 301 REINDIRIZZATO"); //status code 301: RISORSA SPOSTATA
+		out.println("Server: Java HTTP Server from SSaurel : 1.0");
+		out.println("Date: " + new Date());
+		out.println("Location: " + fileRequested);
+		out.println(); //per far capire che stiamo passando dagli header al contenuto si usa DOPPIO SPAZIO!
+		out.flush(); //flush character output stream buffer
+						
+		dataOut.flush();
 	}
 	
 	//quando il file richiesto non esiste da questo errore
 	private void fileNotFound(PrintWriter out, OutputStream dataOut, String fileRequested) throws IOException {
+
 		File file = new File(WEB_ROOT, FILE_NOT_FOUND);
 		int fileLength = (int) file.length();
 		String content = "text/html";
