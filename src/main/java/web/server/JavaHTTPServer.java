@@ -13,6 +13,11 @@ import java.io.PrintWriter;
 import java.net.Socket;
 import java.util.Date;
 import java.util.StringTokenizer;
+import com.fasterxml.jackson.dataformat.xml.XmlMapper;
+import com.fasterxml.jackson.core.JsonParseException;
+import com.fasterxml.jackson.databind.JsonMappingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
 
 
 public class JavaHTTPServer implements Runnable{ 
@@ -21,9 +26,9 @@ public class JavaHTTPServer implements Runnable{
 	ContentType contentType = new ContentType();
 
 	
-	static final File WEB_ROOT = new File("./src/main/resources"); //path
+	static final File WEB_ROOT = new File("src/main/resources"); //path
 	static final String DEFAULT_FILE = "index.html"; //pagina di default
-	static final String FILE_NOT_FOUND = "404.html"; //pagina di errore Client
+	static final String FILE_NOT_FOUND = "pages/404.html"; //pagina di errore Client
 	static final String METHOD_NOT_SUPPORTED = "not_supported.html"; //pagina di errore del metodo (errore Server)
 
 	public File getWebRoot(){
@@ -77,7 +82,16 @@ public class JavaHTTPServer implements Runnable{
 				serverError(out, dataOut);
 				
 			} else {
+				
+				if(fileRequested.endsWith("/")){
+					fileRequested.substring(0, fileRequested.length()-1);
+				}
 
+				if(fileRequested.endsWith(".json/")){
+					root value = XmlDeserializer();
+					JSONSerializer(value);
+				}
+ 				
 				//metodi utilizzabili GET o HEAD
 				if (fileRequested.endsWith("/")) {
 					fileRequested += DEFAULT_FILE; //aggiunge index.html all'url
@@ -91,7 +105,8 @@ public class JavaHTTPServer implements Runnable{
 						fileOK(out, dataOut, fileRequested, fileLength, content, file);
 					}
 
-				}else{
+				}
+				else{
 
 					File file = new File(WEB_ROOT, fileRequested);
 					int fileLength = (int) file.length();
@@ -119,7 +134,7 @@ public class JavaHTTPServer implements Runnable{
 				}			
 			}
 			
-		} catch (FileNotFoundException fnfe) { //se quindi il fileRequested non esista, genere un'eccezione che viene gestita come seguito
+		} catch (FileNotFoundException fnfe) { //se quindi il fileRequested non esiste, genera un'eccezione che viene gestita come seguito
 			try {
 				fileNotFound(out, dataOut, fileRequested);
 			} catch (IOException ioe) {
@@ -161,14 +176,6 @@ public class JavaHTTPServer implements Runnable{
 		
 		return fileData;
 	}
-
-
-
-
-
-
-
-
 
 	//quando avviene un Errore del SERVER restituisce questi header
 	private void serverError(PrintWriter out, OutputStream dataOut) throws IOException{
@@ -247,5 +254,21 @@ public class JavaHTTPServer implements Runnable{
 			System.out.println("File " + fileRequested + " not found");
 		}
 	}
+
+	private root XmlDeserializer() throws JsonParseException, JsonMappingException, IOException{
+		File file = new File("src/main/resources/classe.xml"); //indico il percorso del file da deserializzare
+        XmlMapper xmlMapper = new XmlMapper();
+        root value = xmlMapper.readValue(file, root.class);
+		return value;
+
+	}
 	
+	private void JSONSerializer(root value) throws JsonParseException, JsonMappingException, IOException{
+		ObjectMapper objectMapper = new ObjectMapper();
+		objectMapper.enable(SerializationFeature.INDENT_OUTPUT); //Stampo le stringhe una sotto l'altra
+		objectMapper.writeValue(new File("src/main/resources/classe.json"), value);
+		
+
+		//System.out.println(newFile);
+	}
 }

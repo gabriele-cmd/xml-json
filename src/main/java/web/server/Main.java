@@ -5,12 +5,12 @@ import java.net.ServerSocket;
 import java.util.Date;
 
 public class Main {
-    public static void main(String[] args) {
+    public static void main(String[] args) throws IOException {
 
 		try {
 			ServerSocket serverConnect = new ServerSocket(8080);
-			System.out.println("Server started.\nListening for connections on port : " + JavaHTTPServer.PORT + " ...\n");
-			
+			System.out.println("\nServer started.\nListening for connections on port : " + JavaHTTPServer.PORT + " ...\n");
+
 			//ci mettiamo in ascolto di messaggi dal SERVER finché l'utente non CHIUDE la connessione
 			while (true) {
 				JavaHTTPServer myServer = new JavaHTTPServer(serverConnect.accept());

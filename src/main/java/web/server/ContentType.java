@@ -12,7 +12,7 @@ public class ContentType {
 		else if(fileRequested.endsWith(".png"))
 			return "image/png";
 
-		else if(fileRequested.endsWith(".javascript"))
+		else if(fileRequested.endsWith(".javascript") || fileRequested.endsWith(".js"))
 			return "text/javascript";
 
 		else if(fileRequested.endsWith(".jpeg"))
@@ -26,6 +26,12 @@ public class ContentType {
 
 		else if(fileRequested.endsWith(".jpg"))
 			return "image/jpg";
+		
+		else if(fileRequested.endsWith(".json"))
+			return "application/json";
+
+		else if(fileRequested.endsWith(".xml"))
+			return "application/xml";
 
 		else 
 			return "text/plain";
