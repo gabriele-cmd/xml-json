@@ -2,7 +2,7 @@ package web.server;
 
 import java.util.Vector;
 
-public class root {
+public class XMLroot {
     public int annoDiInizio;
     public aula aula = new aula();
     public String classe;

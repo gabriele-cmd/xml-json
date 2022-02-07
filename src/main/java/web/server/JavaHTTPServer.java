@@ -15,6 +15,7 @@ import java.util.Date;
 import java.util.StringTokenizer;
 import com.fasterxml.jackson.dataformat.xml.XmlMapper;
 import com.fasterxml.jackson.core.JsonParseException;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
@@ -83,57 +84,65 @@ public class JavaHTTPServer implements Runnable{
 				
 			} else {
 				
-				if(fileRequested.endsWith("/")){
-					fileRequested.substring(0, fileRequested.length()-1);
-				}
+				int fileLength = (Integer) null;
+				byte[] fileData = null;
 
-				if(fileRequested.endsWith(".json/")){
-					root value = XmlDeserializer();
-					JSONSerializer(value);
-				}
- 				
 				//metodi utilizzabili GET o HEAD
 				if (fileRequested.endsWith("/")) {
 					fileRequested += DEFAULT_FILE; //aggiunge index.html all'url
-
-					File file = new File(WEB_ROOT, fileRequested);
-					int fileLength = (int) file.length();
-					content = contentType.getContentType(fileRequested);
-
-					if (method.equals("GET")) { //il metodo GET ci reindirizza correttamente
-						//200 OK HEADERS
-						fileOK(out, dataOut, fileRequested, fileLength, content, file);
-					}
-
 				}
+
+				//se il file richiesto è di tipo JSON
+				else if(fileRequested.endsWith(".json")){
+					XMLroot value = XmlDeserializer();
+					String s = JSONSerializer(value);
+
+					//prendo i dati e la lunghezza della String JSON
+					fileLength = s.length();
+					fileData = s.getBytes();
+				}
+
+				//se il file richiesto è di tipo XML
+				else if(fileRequested.endsWith(".xml")){
+					JSONroot value = JSONDeserializer();
+					String s = XMLSerializer(value);
+
+					//prendo i dati e la lunghezza della Stringa XML
+					fileLength = s.length();
+					fileData = s.getBytes();
+				}
+
 				else{
+					//prendo i file generici dal file system
 
 					File file = new File(WEB_ROOT, fileRequested);
-					int fileLength = (int) file.length();
+					fileLength = (int) file.length();
 					content = contentType.getContentType(fileRequested);
-					
-					if(file.isFile() && file.exists()){
-						if(method.equals("GET"))
-						//200 OK HEADERS
-						fileOK(out, dataOut, fileRequested, fileLength, content, file);
+					fileData = readFileData(file, fileLength);
+
+						if(file.isFile() && file.exists()){
+							if(method.equals("GET"))
+							//200 OK HEADERS
+							fileOK(out, dataOut, fileRequested, fileLength, content, file);
 
 						if (verbose) {
 							System.out.println("File " + fileRequested + " of type " + content + " returned");
 						}
 
-					}else{
-						if(fileRequested.endsWith(".html") || fileRequested.endsWith(".css") || fileRequested.endsWith(".js") || fileRequested.endsWith(".jpg") || fileRequested.endsWith(".png") || fileRequested.endsWith(".gif") || fileRequested.endsWith("jpeg") || fileRequested.endsWith("webp")){
-							//404 ERROR HEADERS
-							fileNotFound(out, dataOut, fileRequested);
-
-						}else{
-							//301 FILE MOVED HEADERS
-							fileMoved(out, dataOut, fileRequested);
+						else{
+							if(fileRequested.endsWith(".html") || fileRequested.endsWith(".css") || fileRequested.endsWith(".js") || fileRequested.endsWith(".jpg") || fileRequested.endsWith(".png") || fileRequested.endsWith(".gif") || fileRequested.endsWith("jpeg") || fileRequested.endsWith("webp")){
+								//404 ERROR HEADERS
+								fileNotFound(out, dataOut, fileRequested);
+	
+							}else{
+								//301 FILE MOVED HEADERS
+								fileMoved(out, dataOut, fileRequested);
+								return;
+							}
 						}
-					}
-				}			
+					}			
+				}
 			}
-			
 		} catch (FileNotFoundException fnfe) { //se quindi il fileRequested non esiste, genera un'eccezione che viene gestita come seguito
 			try {
 				fileNotFound(out, dataOut, fileRequested);
@@ -255,20 +264,32 @@ public class JavaHTTPServer implements Runnable{
 		}
 	}
 
-	private root XmlDeserializer() throws JsonParseException, JsonMappingException, IOException{
+	private XMLroot XmlDeserializer() throws JsonParseException, JsonMappingException, IOException{
 		File file = new File("src/main/resources/classe.xml"); //indico il percorso del file da deserializzare
         XmlMapper xmlMapper = new XmlMapper();
-        root value = xmlMapper.readValue(file, root.class);
+        XMLroot value = xmlMapper.readValue(file, XMLroot.class);
 		return value;
 
 	}
 	
-	private void JSONSerializer(root value) throws JsonParseException, JsonMappingException, IOException{
+	private String JSONSerializer(XMLroot value) throws JsonParseException, JsonMappingException, IOException{
 		ObjectMapper objectMapper = new ObjectMapper();
 		objectMapper.enable(SerializationFeature.INDENT_OUTPUT); //Stampo le stringhe una sotto l'altra
-		objectMapper.writeValue(new File("src/main/resources/classe.json"), value);
-		
+		return objectMapper.writeValueAsString(value); //restituisco la Stringa Serializzata in JSON (objectMapper)
 
-		//System.out.println(newFile);
+	}
+
+	private JSONroot JSONDeserializer() throws JsonParseException, JsonMappingException, IOException{
+		ObjectMapper objectMapper = new ObjectMapper();
+		JSONroot value = objectMapper.readValue(new File("src/main/resources/puntivendita.json"), JSONroot.class); //Indico il percorso del file da deserializzare e lo leggo
+		return value;
+
+	}
+
+	private String XMLSerializer(JSONroot value) throws JsonProcessingException{
+		XmlMapper xmlMapper = new XmlMapper();
+		xmlMapper.enable(SerializationFeature.INDENT_OUTPUT);
+    	return xmlMapper.writeValueAsString(value); //restituisco la Stringa Serializzata in XML (xmlMapper)
+		
 	}
 }
